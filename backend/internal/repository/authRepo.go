@@ -72,7 +72,7 @@ func (ur *UserRepository) DeleteUser(id uint) error {
 
 func (ur *UserRepository) CreateUser(user *models.User) error {
 	_, err := ur.db.Exec(
-		"INSERT INTO users(created_at, username, password, userType) VALUES ($1, $2, $3, $4)",
+		"INSERT INTO users(createdat, username, password, usertype_id) VALUES ($1, $2, $3, $4)",
 		user.CreatedAt, user.Username, user.Password, user.UserType,
 	)
 	return err
