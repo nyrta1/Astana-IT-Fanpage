@@ -59,8 +59,9 @@ func main() {
 	logger.InitLogger()
 
 	appConfig = config.App{
-		PORT: os.Getenv("APP_PORT"),
-		DB:   initializeDB(),
+		PORT:  os.Getenv("APP_PORT"),
+		DB:    initializeDB(),
+		Redis: initializeRedis(),
 	}
 
 	dbInstance, err := db.GetDBInstance(appConfig.DB)
@@ -69,11 +70,13 @@ func main() {
 	}
 
 	userRepo := repository.NewUserRepository(dbInstance)
-	authHandlers := handlers.NewAuthHandlers(userRepo, appConfig.Redis)
+	userTypeRepo := repository.NewUserTypeRepository(dbInstance)
+	authHandlers := handlers.NewAuthHandlers(userRepo, userTypeRepo, appConfig.Redis)
 
 	r := gin.Default()
 	router := routers.NewRouters(*authHandlers)
 	router.SetupRoutes(r)
+	r.Use(rateLimitMiddleware())
 
 	server := &http.Server{
 		Addr: ":" + appConfig.PORT,
@@ -105,5 +108,19 @@ func gracefulShutdown(server *http.Server) {
 	logger.GetLogger().Info("Server is running on :" + appConfig.PORT)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		logger.GetLogger().Fatal("Error starting server:", err)
+	}
+}
+
+func rateLimitMiddleware() gin.HandlerFunc {
+	limiter := time.Tick(time.Second)
+
+	return func(c *gin.Context) {
+		select {
+		case <-limiter:
+			c.Next()
+		default:
+			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Rate limit exceeded"})
+			c.Abort()
+		}
 	}
 }
