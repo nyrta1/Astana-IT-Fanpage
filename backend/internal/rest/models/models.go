@@ -7,5 +7,5 @@ type User struct {
 	CreatedAt time.Time `json:"CreatedAt"`
 	Username  string    `json:"username" json:"Username,omitempty"`
 	Password  string    `json:"password" json:"Password,omitempty"`
-	UserType  string    `json:"userType"`
+	UserType  uint      `json:"userType"`
 }
