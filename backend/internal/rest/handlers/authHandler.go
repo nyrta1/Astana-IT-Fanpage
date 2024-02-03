@@ -14,18 +14,22 @@ import (
 )
 
 type AuthHandlers struct {
-	Repo        repository.UserRepo
-	RedisConfig config.RedisConfig
+	Repo         repository.UserRepo
+	UserTypeRepo repository.UserTypeRepo
+	RedisConfig  config.RedisConfig
 }
 
-func NewAuthHandlers(repo repository.UserRepo, redisConfig config.RedisConfig) *AuthHandlers {
+func NewAuthHandlers(repo repository.UserRepo, userTypeRepo repository.UserTypeRepo, redisConfig config.RedisConfig) *AuthHandlers {
 	return &AuthHandlers{
-		Repo:        repo,
-		RedisConfig: redisConfig,
+		Repo:         repo,
+		UserTypeRepo: userTypeRepo,
+		RedisConfig:  redisConfig,
 	}
 }
 
 func (h AuthHandlers) Register(context *gin.Context) {
+	logger.GetLogger().Info("Received registration request")
+
 	var user models.User
 
 	if err := context.BindJSON(&user); err != nil {
@@ -40,7 +44,14 @@ func (h AuthHandlers) Register(context *gin.Context) {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "The account is already registered"})
 		return
 	}
-	user.UserType = models.USER_ROLE
+
+	userTypeID, err := h.UserTypeRepo.GetIDByTypeName(models.USER_ROLE)
+	if err != nil {
+		logger.GetLogger().Error("Account cannot get userTypeID:", err.Error())
+		context.JSON(http.StatusInternalServerError, gin.H{"error": "Account cannot get userTypeID"})
+		return
+	}
+	user.UserType = userTypeID
 
 	hashedPassword, err := utils.HashPassword(user.Password)
 	if err != nil {
@@ -50,13 +61,20 @@ func (h AuthHandlers) Register(context *gin.Context) {
 	}
 	user.Password = hashedPassword
 
+	userTypeName, err := h.UserTypeRepo.GetTypeByID(user.UserType)
+	if err != nil {
+		logger.GetLogger().Error("Unable to find the user type")
+		context.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to find the user type"})
+		return
+	}
+
 	if err := h.Repo.CreateUser(&user); err != nil {
 		logger.GetLogger().Error("Failed to create user:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	signedToken, _ := utils.CreateToken(strconv.Itoa(int(user.ID)), user.Username, user.UserType)
+	signedToken, _ := utils.CreateToken(strconv.Itoa(int(user.ID)), user.Username, userTypeName)
 	cookie := http.Cookie{
 		Name:     "jwt",
 		Value:    signedToken,
@@ -92,9 +110,14 @@ func (h AuthHandlers) Login(context *gin.Context) {
 		return
 	}
 
-	user.UserType = models.USER_ROLE
+	userType, err := h.UserTypeRepo.GetTypeByID(user.UserType)
+	if err != nil {
+		logger.GetLogger().Error("Account cannot get userTypeID:", err.Error())
+		context.JSON(http.StatusInternalServerError, gin.H{"error": "Account cannot get userTypeID"})
+		return
+	}
 
-	token, err := utils.CreateToken(strconv.Itoa(int(user.ID)), user.Username, user.UserType)
+	token, err := utils.CreateToken(strconv.Itoa(int(user.ID)), user.Username, userType)
 	if err != nil {
 		logger.GetLogger().Error("Failed to create token:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token", "data": token})
