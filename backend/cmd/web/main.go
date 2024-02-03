@@ -20,8 +20,8 @@ import (
 )
 
 func init() {
-	if err := godotenv.Load("backend/.env"); err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+	if err := godotenv.Load("backend.env"); err != nil {
+		log.Fatalf("Error loading backend.env file: %s", err)
 	}
 }
 
@@ -74,12 +74,14 @@ func main() {
 	authHandlers := handlers.NewAuthHandlers(userRepo, userTypeRepo, appConfig.Redis)
 
 	r := gin.Default()
+
 	router := routers.NewRouters(*authHandlers)
 	router.SetupRoutes(r)
 	r.Use(rateLimitMiddleware())
 
 	server := &http.Server{
-		Addr: ":" + appConfig.PORT,
+		Addr:    ":" + appConfig.PORT,
+		Handler: r,
 	}
 
 	gracefulShutdown(server)
