@@ -3,18 +3,21 @@ package main
 import (
 	"aitu-funpage/backend/internal/config"
 	"aitu-funpage/backend/internal/db"
+	"aitu-funpage/backend/internal/repository"
+	"aitu-funpage/backend/internal/rest/handlers"
+	"aitu-funpage/backend/internal/routers"
 	"aitu-funpage/backend/pkg/logger"
 	"context"
+	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
-
-var appConfig config.App
 
 func init() {
 	if err := godotenv.Load("backend/.env"); err != nil {
@@ -35,6 +38,23 @@ func initializeDB() config.Database {
 	return dbConfig
 }
 
+func initializeRedis() config.RedisConfig {
+	redisDB, err := strconv.Atoi(os.Getenv("REDIS_DB"))
+	if err != nil {
+		log.Fatalf("Error converting REDIS_DB to int: %s", err)
+	}
+
+	redisConfig := config.RedisConfig{
+		Addr:     os.Getenv("REDIS_ADDRESS"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       redisDB,
+	}
+
+	return redisConfig
+}
+
+var appConfig config.App
+
 func main() {
 	logger.InitLogger()
 
@@ -43,11 +63,17 @@ func main() {
 		DB:   initializeDB(),
 	}
 
-	// TODO: replace _ to db
-	_, err := db.GetDBInstance(appConfig.DB)
+	dbInstance, err := db.GetDBInstance(appConfig.DB)
 	if err != nil {
 		logger.GetLogger().Fatal("Error initializing DB:", err)
 	}
+
+	userRepo := repository.NewUserRepository(dbInstance)
+	authHandlers := handlers.NewAuthHandlers(userRepo, appConfig.Redis)
+
+	r := gin.Default()
+	router := routers.NewRouters(*authHandlers)
+	router.SetupRoutes(r)
 
 	server := &http.Server{
 		Addr: ":" + appConfig.PORT,
