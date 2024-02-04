@@ -45,12 +45,10 @@ func (h NewsHandlers) CreateNews(context *gin.Context) {
 	}
 
 	var news models.News
+	news.Title = newsForm.Title
 	news.Content = newsForm.Content
 	news.Author = usernamem
 	news.CreatedAt = time.Now()
-
-	news.Tags = []models.Tag{}
-	news.Comments = []models.Comment{}
 
 	if err := h.MongoDb.CreateNews(&news); err != nil {
 		logger.GetLogger().Error("Failed to create news:", err)

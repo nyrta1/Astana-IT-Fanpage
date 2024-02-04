@@ -1,6 +1,7 @@
 package models
 
 import (
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"time"
 )
 
@@ -17,20 +18,30 @@ type User struct {
 // MongoDB Models
 
 type News struct {
-	Tags      []Tag     `json:"tags" bson:"tags"`
 	Author    string    `json:"author" bson:"author"`
+	Title     string    `json:"title" json:"title"`
 	Content   string    `json:"content" bson:"content"`
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
-	Comments  []Comment `json:"comments" bson:"comments"`
 }
 
-type Comment struct {
+type Comments struct {
+	NewsID   primitive.ObjectID `json:"news_id" bson:"news_id"`
+	Comments []CommentData      `json:"comments" bson:"comments"`
+}
+
+type Tags struct {
+	NewsID primitive.ObjectID `json:"news_id" bson:"news_id"`
+	Tags   []TagData          `json:"tags" bson:"tags"`
+}
+
+type CommentData struct {
 	Username  string    `json:"user" bson:"user"`
 	Content   string    `json:"content" bson:"content"`
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 }
 
-type Tag struct {
-	Tag       string    `json:"tag" bson:"tag"`
+type TagData struct {
+	TagName   string    `json:"tag" bson:"tag"`
+	Color     string    `json:"color" bson:"color"`
 	CreatedAt time.Time `json:"created_at" bson:"created_at"`
 }
