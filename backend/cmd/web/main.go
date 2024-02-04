@@ -3,7 +3,8 @@ package main
 import (
 	"aitu-funpage/backend/internal/config"
 	"aitu-funpage/backend/internal/db"
-	"aitu-funpage/backend/internal/repository"
+	"aitu-funpage/backend/internal/db/mongodb"
+	"aitu-funpage/backend/internal/repository/sql"
 	"aitu-funpage/backend/internal/rest/handlers"
 	"aitu-funpage/backend/internal/routers"
 	"aitu-funpage/backend/pkg/logger"
@@ -53,15 +54,25 @@ func initializeRedis() config.RedisConfig {
 	return redisConfig
 }
 
+func initializeMongoDB() config.MongoDbConfig {
+	mongoDbConfig := config.MongoDbConfig{
+		Addr:         os.Getenv("MONGODB_URI"),
+		DatabaseName: os.Getenv("MONGODB_DATABASE_NAME"),
+	}
+
+	return mongoDbConfig
+}
+
 var appConfig config.App
 
 func main() {
 	logger.InitLogger()
 
 	appConfig = config.App{
-		PORT:  os.Getenv("APP_PORT"),
-		DB:    initializeDB(),
-		Redis: initializeRedis(),
+		PORT:          os.Getenv("APP_PORT"),
+		DB:            initializeDB(),
+		Redis:         initializeRedis(),
+		MongoDbConfig: initializeMongoDB(),
 	}
 
 	dbInstance, err := db.GetDBInstance(appConfig.DB)
@@ -69,8 +80,13 @@ func main() {
 		logger.GetLogger().Fatal("Error initializing DB:", err)
 	}
 
-	userRepo := repository.NewUserRepository(dbInstance)
-	userTypeRepo := repository.NewUserTypeRepository(dbInstance)
+	_, err = mongodb.GetMongoDbInstance(appConfig.MongoDbConfig)
+	if err != nil {
+		logger.GetLogger().Fatal("Error initializing MongoDB:", err)
+	}
+
+	userRepo := sql.NewUserRepository(dbInstance)
+	userTypeRepo := sql.NewUserTypeRepository(dbInstance)
 	authHandlers := handlers.NewAuthHandlers(userRepo, userTypeRepo, appConfig.Redis)
 
 	r := gin.Default()
