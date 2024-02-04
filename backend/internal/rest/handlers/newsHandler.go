@@ -12,12 +12,14 @@ import (
 )
 
 type NewsHandlers struct {
-	MongoDb nosql.NewsRepo
+	NewsRepo nosql.NewsRepo
+	TagRepo  nosql.TagRepo
 }
 
-func NewNewsHandlers(mongoDb nosql.NewsRepo) *NewsHandlers {
+func NewNewsHandlers(newsRepo nosql.NewsRepo, tagRepo nosql.TagRepo) *NewsHandlers {
 	return &NewsHandlers{
-		MongoDb: mongoDb,
+		NewsRepo: newsRepo,
+		TagRepo:  tagRepo,
 	}
 }
 
@@ -50,8 +52,15 @@ func (h NewsHandlers) CreateNews(context *gin.Context) {
 	news.Author = usernamem
 	news.CreatedAt = time.Now()
 
-	if err := h.MongoDb.CreateNews(&news); err != nil {
+	insertedId, err := h.NewsRepo.CreateNews(&news)
+	if err != nil {
 		logger.GetLogger().Error("Failed to create news:", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.TagRepo.CreateDocumentByNewsID(insertedId); err != nil {
+		logger.GetLogger().Error("Failed to create tag document:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -70,7 +79,7 @@ func (h NewsHandlers) GetNewsByObjectID(context *gin.Context) {
 		return
 	}
 
-	news, err := h.MongoDb.GetNewsByObjectID(objectID)
+	news, err := h.NewsRepo.GetNewsByObjectID(objectID)
 	if err != nil {
 		logger.GetLogger().Error("Failed to get news:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -84,7 +93,7 @@ func (h NewsHandlers) GetNewsByObjectID(context *gin.Context) {
 func (h NewsHandlers) GetAllNewsByAuthor(context *gin.Context) {
 	authorName := context.Query("author")
 
-	news, err := h.MongoDb.GetAllNewsByAuthor(authorName)
+	news, err := h.NewsRepo.GetAllNewsByAuthor(authorName)
 	if err != nil {
 		logger.GetLogger().Error("Failed to get news:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -93,20 +102,6 @@ func (h NewsHandlers) GetAllNewsByAuthor(context *gin.Context) {
 
 	logger.GetLogger().Info("Get News successfully")
 	context.JSON(http.StatusOK, gin.H{"status": "success", "data": news})
-}
-
-func (h NewsHandlers) GetAllNewsByTag(context *gin.Context) {
-	tagName := context.Query("tag")
-
-	tags, err := h.MongoDb.GetAllNewsByTag(tagName)
-	if err != nil {
-		logger.GetLogger().Error("Failed to get news:", err)
-		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	logger.GetLogger().Info("Get News successfully")
-	context.JSON(http.StatusOK, gin.H{"status": "success", "data": tags})
 }
 
 func (h NewsHandlers) UpdateNewsByObjectID(context *gin.Context) {
@@ -132,7 +127,7 @@ func (h NewsHandlers) UpdateNewsByObjectID(context *gin.Context) {
 		return
 	}
 
-	news, err := h.MongoDb.GetNewsByObjectID(objectID)
+	news, err := h.NewsRepo.GetNewsByObjectID(objectID)
 	if news.Author != usernamem {
 		logger.GetLogger().Error("The user can't delete the news item. The user isn't the owner of the news")
 		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "You can't delete the news. You're not the owner of the news"})
@@ -151,7 +146,7 @@ func (h NewsHandlers) UpdateNewsByObjectID(context *gin.Context) {
 	news.Title = newsForm.Title
 	news.Content = newsForm.Content
 
-	if err := h.MongoDb.UpdateNewsByObjectID(objectID, &updateNews); err != nil {
+	if err := h.NewsRepo.UpdateNewsByObjectID(objectID, &updateNews); err != nil {
 		logger.GetLogger().Error("Failed to update news:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -184,20 +179,20 @@ func (h NewsHandlers) DeleteNewsByObjectID(context *gin.Context) {
 		return
 	}
 
-	news, err := h.MongoDb.GetNewsByObjectID(objectID)
+	news, err := h.NewsRepo.GetNewsByObjectID(objectID)
 	if news.Author != usernamem {
 		logger.GetLogger().Error("The user can't delete the news item. The user isn't the owner of the news")
 		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "You can't delete the news. You're not the owner of the news"})
 		return
 	}
 
-	err = h.MongoDb.DeleteNewsByObjectID(objectID)
+	err = h.NewsRepo.DeleteNewsByObjectID(objectID)
 	if err != nil {
 		logger.GetLogger().Error("Failed to delete news:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	logger.GetLogger().Info("Get News successfully")
+	logger.GetLogger().Info("Delete News successfully")
 	context.JSON(http.StatusOK, gin.H{"status": "success"})
 }
