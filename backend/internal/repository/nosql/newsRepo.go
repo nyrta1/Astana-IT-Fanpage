@@ -5,16 +5,16 @@ import (
 	"aitu-funpage/backend/internal/rest/models"
 	"aitu-funpage/backend/pkg/logger"
 	"context"
+	"errors"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type NewsRepo interface {
-	CreateNews(newNews *models.News) error
+	CreateNews(newNews *models.News) (primitive.ObjectID, error)
 	GetNewsByObjectID(objectId primitive.ObjectID) (*models.News, error)
 	GetAllNewsByAuthor(author string) ([]*models.News, error)
-	GetAllNewsByTag(tagName string) ([]*models.News, error)
 	UpdateNewsByObjectID(objectId primitive.ObjectID, updateNews *models.News) error
 	DeleteNewsByObjectID(objectId primitive.ObjectID) error
 }
@@ -31,14 +31,21 @@ func NewNewsRepository(db *mongo.Database) *NewsRepository {
 	}
 }
 
-func (nr *NewsRepository) CreateNews(newNews *models.News) error {
-	_, err := nr.coll.InsertOne(context.TODO(), newNews)
+func (nr *NewsRepository) CreateNews(newNews *models.News) (primitive.ObjectID, error) {
+	result, err := nr.coll.InsertOne(context.TODO(), newNews)
 	if err != nil {
 		logger.GetLogger().Fatal("Error to save the news: ", err.Error())
-		return err
+		return primitive.NilObjectID, err
 	}
 
-	return nil
+	insertedID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		err := errors.New("failed to convert InsertedID to ObjectID")
+		logger.GetLogger().Fatal("Error to save the news: ", err.Error())
+		return primitive.NilObjectID, err
+	}
+
+	return insertedID, nil
 }
 
 func (nr *NewsRepository) GetNewsByObjectID(objectId primitive.ObjectID) (*models.News, error) {
@@ -56,30 +63,6 @@ func (nr *NewsRepository) GetNewsByObjectID(objectId primitive.ObjectID) (*model
 
 func (nr *NewsRepository) GetAllNewsByAuthor(author string) ([]*models.News, error) {
 	filter := bson.D{{"author", author}}
-
-	cursor, err := nr.coll.Find(context.TODO(), filter)
-	if err != nil {
-		logger.GetLogger().Fatal("Unable to find the mongoDB request! Error: ", err.Error())
-		return nil, err
-	}
-	defer cursor.Close(context.TODO())
-
-	var results []*models.News
-	for cursor.Next(context.TODO()) {
-		var result models.News
-		if err := cursor.Decode(&result); err != nil {
-			logger.GetLogger().Fatal("Error decoding result: ", err.Error())
-			return nil, err
-		}
-		results = append(results, &result)
-	}
-
-	return results, nil
-}
-
-func (nr *NewsRepository) GetAllNewsByTag(tagName string) ([]*models.News, error) {
-	filter := bson.D{
-		{"tags", bson.M{"$elemMatch": bson.M{"tag": tagName}}}}
 
 	cursor, err := nr.coll.Find(context.TODO(), filter)
 	if err != nil {
