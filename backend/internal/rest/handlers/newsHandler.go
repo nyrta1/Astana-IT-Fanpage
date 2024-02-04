@@ -110,16 +110,84 @@ func (h NewsHandlers) GetAllNewsByTag(context *gin.Context) {
 }
 
 func (h NewsHandlers) UpdateNewsByObjectID(context *gin.Context) {
-	context.JSON(http.StatusOK, gin.H{"status": "success", "data": "TODO!"})
-}
-
-func (h NewsHandlers) DeleteNewsByObjectID(context *gin.Context) {
-	objectIDParam := context.Query(" ")
-
+	objectIDParam := context.Query("object_id")
 	objectID, err := primitive.ObjectIDFromHex(objectIDParam)
 	if err != nil {
 		logger.GetLogger().Error("Invalid object_id parameter:", err)
 		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid object_id parameter"})
+		return
+	}
+
+	username, exists := context.Get("username")
+	if !exists {
+		logger.GetLogger().Error("User not authenticated")
+		context.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "User not authenticated"})
+		return
+	}
+
+	usernamem, ok := username.(string)
+	if !ok {
+		logger.GetLogger().Error("Error while retrieving user Username")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error while retrieving user Username"})
+		return
+	}
+
+	news, err := h.MongoDb.GetNewsByObjectID(objectID)
+	if news.Author != usernamem {
+		logger.GetLogger().Error("The user can't delete the news item. The user isn't the owner of the news")
+		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "You can't delete the news. You're not the owner of the news"})
+		return
+	}
+
+	var newsForm forms.NewsForm
+
+	if err := context.BindJSON(&newsForm); err != nil {
+		logger.GetLogger().Error("Invalid news request:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	var updateNews models.News
+	news.Title = newsForm.Title
+	news.Content = newsForm.Content
+
+	if err := h.MongoDb.UpdateNewsByObjectID(objectID, &updateNews); err != nil {
+		logger.GetLogger().Error("Failed to update news:", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	logger.GetLogger().Info("News updated successfully")
+	context.JSON(http.StatusOK, gin.H{"message": "News updated successfully", "data": news})
+}
+
+func (h NewsHandlers) DeleteNewsByObjectID(context *gin.Context) {
+	objectIDParam := context.Query("object_id")
+	objectID, err := primitive.ObjectIDFromHex(objectIDParam)
+	if err != nil {
+		logger.GetLogger().Error("Invalid object_id parameter:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid object_id parameter"})
+		return
+	}
+
+	username, exists := context.Get("username")
+	if !exists {
+		logger.GetLogger().Error("User not authenticated")
+		context.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "User not authenticated"})
+		return
+	}
+
+	usernamem, ok := username.(string)
+	if !ok {
+		logger.GetLogger().Error("Error while retrieving user Username")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error while retrieving user Username"})
+		return
+	}
+
+	news, err := h.MongoDb.GetNewsByObjectID(objectID)
+	if news.Author != usernamem {
+		logger.GetLogger().Error("The user can't delete the news item. The user isn't the owner of the news")
+		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "You can't delete the news. You're not the owner of the news"})
 		return
 	}
 
