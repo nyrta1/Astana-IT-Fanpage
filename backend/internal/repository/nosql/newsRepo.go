@@ -12,11 +12,11 @@ import (
 
 type NewsRepo interface {
 	CreateNews(newNews *models.News) error
-	GetNewsByObjectID(objectId string) (*models.News, error)
+	GetNewsByObjectID(objectId primitive.ObjectID) (*models.News, error)
 	GetAllNewsByAuthor(author string) ([]*models.News, error)
 	GetAllNewsByTag(tagName string) ([]*models.News, error)
-	UpdateNewsByObjectID(objectId string, updateNews *models.News) error
-	DeleteNewsByObjectID(objectId string) error
+	UpdateNewsByObjectID(objectId primitive.ObjectID, updateNews *models.News) error
+	DeleteNewsByObjectID(objectId primitive.ObjectID) error
 }
 
 type NewsRepository struct {
@@ -41,9 +41,8 @@ func (nr *NewsRepository) CreateNews(newNews *models.News) error {
 	return nil
 }
 
-func (nr *NewsRepository) GetNewsByObjectID(objectId string) (*models.News, error) {
-	id, _ := primitive.ObjectIDFromHex(objectId)
-	filter := bson.D{{"_id", id}}
+func (nr *NewsRepository) GetNewsByObjectID(objectId primitive.ObjectID) (*models.News, error) {
+	filter := bson.D{{"_id", objectId}}
 
 	var result models.News
 	err := nr.coll.FindOne(context.TODO(), filter).Decode(&result)
@@ -102,9 +101,8 @@ func (nr *NewsRepository) GetAllNewsByTag(tagName string) ([]*models.News, error
 	return results, nil
 }
 
-func (nr *NewsRepository) UpdateNewsByObjectID(objectId string, updateNews *models.News) error {
-	id, _ := primitive.ObjectIDFromHex(objectId)
-	filter := bson.D{{"_id", id}}
+func (nr *NewsRepository) UpdateNewsByObjectID(objectId primitive.ObjectID, updateNews *models.News) error {
+	filter := bson.D{{"_id", objectId}}
 
 	update := bson.D{{"$set", updateNews}}
 
@@ -117,9 +115,8 @@ func (nr *NewsRepository) UpdateNewsByObjectID(objectId string, updateNews *mode
 	return nil
 }
 
-func (nr *NewsRepository) DeleteNewsByObjectID(objectId string) error {
-	id, _ := primitive.ObjectIDFromHex(objectId)
-	filter := bson.D{{"_id", id}}
+func (nr *NewsRepository) DeleteNewsByObjectID(objectId primitive.ObjectID) error {
+	filter := bson.D{{"_id", objectId}}
 
 	_, err := nr.coll.DeleteOne(context.TODO(), filter)
 	if err != nil {
