@@ -1,4 +1,4 @@
-package repository
+package sql
 
 import (
 	"aitu-funpage/backend/internal/rest/models"
