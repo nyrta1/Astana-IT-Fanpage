@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"aitu-funpage/backend/internal/config"
-	"aitu-funpage/backend/internal/repository"
+	"aitu-funpage/backend/internal/repository/sql"
 	"aitu-funpage/backend/internal/rest/forms"
 	"aitu-funpage/backend/internal/rest/models"
 	"aitu-funpage/backend/pkg/logger"
@@ -14,12 +14,12 @@ import (
 )
 
 type AuthHandlers struct {
-	Repo         repository.UserRepo
-	UserTypeRepo repository.UserTypeRepo
+	Repo         sql.UserRepo
+	UserTypeRepo sql.UserTypeRepo
 	RedisConfig  config.RedisConfig
 }
 
-func NewAuthHandlers(repo repository.UserRepo, userTypeRepo repository.UserTypeRepo, redisConfig config.RedisConfig) *AuthHandlers {
+func NewAuthHandlers(repo sql.UserRepo, userTypeRepo sql.UserTypeRepo, redisConfig config.RedisConfig) *AuthHandlers {
 	return &AuthHandlers{
 		Repo:         repo,
 		UserTypeRepo: userTypeRepo,
@@ -123,6 +123,9 @@ func (h AuthHandlers) Login(context *gin.Context) {
 		context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create token", "data": token})
 		return
 	}
+
+	context.Header("Authorization", "Bearer "+token)
+
 	cookie := http.Cookie{
 		Name:     "jwt",
 		Value:    token,
@@ -162,8 +165,8 @@ func (h AuthHandlers) DeleteAccount(context *gin.Context) {
 
 	usernamem, ok := username.(string)
 	if !ok {
-		logger.GetLogger().Error("Error while retrieving user ID")
-		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error while retrieving user ID"})
+		logger.GetLogger().Error("Error while retrieving user Username")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error while retrieving user Username"})
 		return
 	}
 
