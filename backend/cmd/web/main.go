@@ -89,12 +89,15 @@ func main() {
 	userRepo := sql.NewUserRepository(dbInstance)
 	userTypeRepo := sql.NewUserTypeRepository(dbInstance)
 	newsRepo := nosql.NewNewsRepository(mongoDbInstance)
+	tagRepo := nosql.NewTagRepository(mongoDbInstance)
+
 	authHandlers := handlers.NewAuthHandlers(userRepo, userTypeRepo, appConfig.Redis)
-	newsHandlers := handlers.NewNewsHandlers(newsRepo)
+	newsHandlers := handlers.NewNewsHandlers(newsRepo, tagRepo)
+	tagHandlers := handlers.NewTagHandlers(tagRepo, newsRepo)
 
 	r := gin.Default()
 
-	router := routers.NewRouters(*authHandlers, *newsHandlers)
+	router := routers.NewRouters(*authHandlers, *newsHandlers, *tagHandlers)
 	router.SetupRoutes(r)
 	r.Use(rateLimitMiddleware())
 
