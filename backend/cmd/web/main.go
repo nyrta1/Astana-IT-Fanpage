@@ -4,6 +4,7 @@ import (
 	"aitu-funpage/backend/internal/config"
 	"aitu-funpage/backend/internal/db"
 	"aitu-funpage/backend/internal/db/mongodb"
+	"aitu-funpage/backend/internal/repository/nosql"
 	"aitu-funpage/backend/internal/repository/sql"
 	"aitu-funpage/backend/internal/rest/handlers"
 	"aitu-funpage/backend/internal/routers"
@@ -80,18 +81,20 @@ func main() {
 		logger.GetLogger().Fatal("Error initializing DB:", err)
 	}
 
-	_, err = mongodb.GetMongoDbInstance(appConfig.MongoDbConfig)
+	mongoDbInstance, err := mongodb.GetMongoDbInstance(appConfig.MongoDbConfig)
 	if err != nil {
 		logger.GetLogger().Fatal("Error initializing MongoDB:", err)
 	}
 
 	userRepo := sql.NewUserRepository(dbInstance)
 	userTypeRepo := sql.NewUserTypeRepository(dbInstance)
+	newsRepo := nosql.NewNewsRepository(mongoDbInstance)
 	authHandlers := handlers.NewAuthHandlers(userRepo, userTypeRepo, appConfig.Redis)
+	newsHandlers := handlers.NewNewsHandlers(newsRepo)
 
 	r := gin.Default()
 
-	router := routers.NewRouters(*authHandlers)
+	router := routers.NewRouters(*authHandlers, *newsHandlers)
 	router.SetupRoutes(r)
 	r.Use(rateLimitMiddleware())
 
