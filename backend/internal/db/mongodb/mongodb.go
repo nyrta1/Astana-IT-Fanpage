@@ -14,6 +14,12 @@ var (
 	db     *mongo.Database
 )
 
+var (
+	NEWS_COLLECTION_NAME    string = "news"
+	COMMENT_COLLECTION_NAME string = "comments"
+	TAGS_COLLECTION_NAME    string = "tags"
+)
+
 func initializeMongoDB(mongoDbConfig config.MongoDbConfig) error {
 	uri := mongoDbConfig.Addr
 	if uri == "" {
@@ -27,12 +33,6 @@ func initializeMongoDB(mongoDbConfig config.MongoDbConfig) error {
 		logger.GetLogger().Fatal("Unable to connect to MongoDB. Error: ", err.Error())
 		return err
 	}
-
-	defer func() {
-		if err := client.Disconnect(context.TODO()); err != nil {
-			logger.GetLogger().Fatal("Unable to disconnect to MongoDB. Error: ", err.Error())
-		}
-	}()
 
 	db = client.Database(mongoDbConfig.DatabaseName)
 
