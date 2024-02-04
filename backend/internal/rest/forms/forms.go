@@ -9,3 +9,8 @@ type NewsForm struct {
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
+
+type TagForm struct {
+	Tag   string `json:"tag"`
+	Color string `json:"color"`
+}
