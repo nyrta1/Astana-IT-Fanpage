@@ -14,3 +14,7 @@ type TagForm struct {
 	Tag   string `json:"tag"`
 	Color string `json:"color"`
 }
+
+type CommentForm struct {
+	Content string `json:"content"`
+}
