@@ -85,7 +85,6 @@ func (tr *TagRepository) UpdateTagByNewsID(newsObjectID primitive.ObjectID, tagN
 		{"$set", bson.D{
 			{"tags.$.tag", updatedTagItem.TagName},
 			{"tags.$.color", updatedTagItem.Color},
-			{"tags.$.created_at", updatedTagItem.CreatedAt},
 		}},
 	}
 
