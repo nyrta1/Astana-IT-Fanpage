@@ -35,9 +35,10 @@ type Tags struct {
 }
 
 type CommentData struct {
-	Username  string    `json:"user" bson:"user"`
-	Content   string    `json:"content" bson:"content"`
-	CreatedAt time.Time `json:"created_at" bson:"created_at"`
+	CommentDataID primitive.ObjectID `json:"comment_id" bson:"_id"`
+	Username      string             `json:"user" bson:"user"`
+	Content       string             `json:"content" bson:"content"`
+	CreatedAt     time.Time          `json:"created_at" bson:"created_at"`
 }
 
 type TagData struct {
