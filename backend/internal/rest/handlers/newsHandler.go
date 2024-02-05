@@ -12,14 +12,16 @@ import (
 )
 
 type NewsHandlers struct {
-	NewsRepo nosql.NewsRepo
-	TagRepo  nosql.TagRepo
+	NewsRepo    nosql.NewsRepo
+	TagRepo     nosql.TagRepo
+	CommentRepo nosql.CommentRepo
 }
 
-func NewNewsHandlers(newsRepo nosql.NewsRepo, tagRepo nosql.TagRepo) *NewsHandlers {
+func NewNewsHandlers(newsRepo nosql.NewsRepo, tagRepo nosql.TagRepo, commentRepo nosql.CommentRepo) *NewsHandlers {
 	return &NewsHandlers{
-		NewsRepo: newsRepo,
-		TagRepo:  tagRepo,
+		NewsRepo:    newsRepo,
+		TagRepo:     tagRepo,
+		CommentRepo: commentRepo,
 	}
 }
 
@@ -61,6 +63,12 @@ func (h NewsHandlers) CreateNews(context *gin.Context) {
 
 	if err := h.TagRepo.CreateDocumentByNewsID(insertedId); err != nil {
 		logger.GetLogger().Error("Failed to create tag document:", err)
+		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := h.CommentRepo.CreateDocumentByNewsID(insertedId); err != nil {
+		logger.GetLogger().Error("Failed to create comment document:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
