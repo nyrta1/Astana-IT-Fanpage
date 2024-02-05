@@ -22,7 +22,7 @@ func NewCommentHandler(commentRepo nosql.CommentRepo) *CommentHandlers {
 }
 
 func (h CommentHandlers) AddCommentToNews(context *gin.Context) {
-	objectIDParam := context.Query("object_id")
+	objectIDParam := context.Query("news_id")
 	objectID, err := primitive.ObjectIDFromHex(objectIDParam)
 	if err != nil {
 		logger.GetLogger().Error("Invalid object_id parameter:", err)
@@ -52,6 +52,7 @@ func (h CommentHandlers) AddCommentToNews(context *gin.Context) {
 	}
 
 	var commentData models.CommentData
+	commentData.CommentDataID = primitive.NewObjectID()
 	commentData.Content = commentForm.Content
 	commentData.Username = usernamem
 	commentData.CreatedAt = time.Now()
@@ -67,7 +68,7 @@ func (h CommentHandlers) AddCommentToNews(context *gin.Context) {
 }
 
 func (h CommentHandlers) GetCommentsByNewsID(context *gin.Context) {
-	objectIDParam := context.Query("object_id")
+	objectIDParam := context.Query("news_id")
 
 	objectID, err := primitive.ObjectIDFromHex(objectIDParam)
 	if err != nil {
@@ -76,7 +77,7 @@ func (h CommentHandlers) GetCommentsByNewsID(context *gin.Context) {
 		return
 	}
 
-	comments, err := h.CommentRepo.GetCommentsByNewsID(objectID)
+	comments, err := h.CommentRepo.GetAllCommentsByNewsID(objectID)
 	if err != nil {
 		logger.GetLogger().Error("Failed to get news comments:", err)
 		context.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -88,9 +89,122 @@ func (h CommentHandlers) GetCommentsByNewsID(context *gin.Context) {
 }
 
 func (h CommentHandlers) UpdateCommentsByNewsID(context *gin.Context) {
-	context.JSON(http.StatusOK, gin.H{"message": "TODO!"})
+	objectIDParam := context.Query("news_id")
+	commentIDParam := context.Query("comment_id")
+	objectID, err := primitive.ObjectIDFromHex(objectIDParam)
+	if err != nil {
+		logger.GetLogger().Error("Invalid object_id parameter:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid object_id parameter"})
+		return
+	}
+
+	commentID, err := primitive.ObjectIDFromHex(commentIDParam)
+	if err != nil {
+		logger.GetLogger().Error("Invalid object_id parameter:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid object_id parameter"})
+		return
+	}
+
+	username, exists := context.Get("username")
+	if !exists {
+		logger.GetLogger().Error("User not authenticated")
+		context.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "User not authenticated"})
+		return
+	}
+
+	usernamem, ok := username.(string)
+	if !ok {
+		logger.GetLogger().Error("Error while retrieving user Username")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error while retrieving user Username"})
+		return
+	}
+
+	comments, err := h.CommentRepo.GetCommentByCommentID(objectID, commentID)
+	if err != nil {
+		logger.GetLogger().Error("Unable to find the comment")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Unable to find the comment"})
+		return
+	}
+
+	commentData := comments.Comments[0]
+
+	if commentData.Username != usernamem {
+		logger.GetLogger().Error("The user can't delete the news item. The user isn't the owner of the news")
+		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "You can't delete the news. You're not the owner of the news"})
+		return
+	}
+
+	var commentForm forms.CommentForm
+	if err := context.BindJSON(&commentForm); err != nil {
+		logger.GetLogger().Error("Invalid comment data request:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	commentData.Content = commentForm.Content
+
+	if err := h.CommentRepo.UpdateCommentsByNewsID(objectID, commentID, &commentData); err != nil {
+		logger.GetLogger().Error("Unable to update the comment")
+		context.JSON(http.StatusInternalServerError, gin.H{"error": "Unable to update the comment"})
+		return
+	}
+
+	logger.GetLogger().Info("Update News Comments successfully")
+	context.JSON(http.StatusOK, gin.H{"status": "success", "data": commentData})
 }
 
 func (h CommentHandlers) DeleteCommentByNewsID(context *gin.Context) {
-	context.JSON(http.StatusOK, gin.H{"message": "TODO!"})
+	objectIDParam := context.Query("news_id")
+	commentIDParam := context.Query("comment_id")
+	objectID, err := primitive.ObjectIDFromHex(objectIDParam)
+	if err != nil {
+		logger.GetLogger().Error("Invalid object_id parameter:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid object_id parameter"})
+		return
+	}
+
+	commentID, err := primitive.ObjectIDFromHex(commentIDParam)
+	if err != nil {
+		logger.GetLogger().Error("Invalid object_id parameter:", err)
+		context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid object_id parameter"})
+		return
+	}
+
+	username, exists := context.Get("username")
+	if !exists {
+		logger.GetLogger().Error("User not authenticated")
+		context.JSON(http.StatusUnauthorized, gin.H{"status": "error", "message": "User not authenticated"})
+		return
+	}
+
+	usernamem, ok := username.(string)
+	if !ok {
+		logger.GetLogger().Error("Error while retrieving user Username")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Error while retrieving user Username"})
+		return
+	}
+
+	comments, err := h.CommentRepo.GetCommentByCommentID(objectID, commentID)
+	if err != nil {
+		logger.GetLogger().Error("Unable to find the comment")
+		context.JSON(http.StatusInternalServerError, gin.H{"status": "error", "message": "Unable to find the comment"})
+		return
+	}
+
+	commentData := comments.Comments[0]
+
+	if commentData.Username != usernamem {
+		logger.GetLogger().Error("The user can't delete the news item. The user isn't the owner of the news")
+		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "You can't delete the news. You're not the owner of the news"})
+		return
+	}
+
+	if err := h.CommentRepo.DeleteCommentByNewsIDAndCommentID(objectID, commentID); err != nil {
+		logger.GetLogger().Error("Unable to delete the comment")
+		context.JSON(http.StatusBadRequest, gin.H{"status": "error", "message": "Unable to delete the comment"})
+		return
+	}
+
+	logger.GetLogger().Info("Delete News Comments successfully")
+	context.JSON(http.StatusOK, gin.H{"status": "success"})
 }
