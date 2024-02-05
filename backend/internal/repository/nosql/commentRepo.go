@@ -14,7 +14,8 @@ type CommentRepo interface {
 	CreateDocumentByNewsID(newsObjectID primitive.ObjectID) error
 	AddCommentToNews(newsObjectID primitive.ObjectID, commentItem *models.CommentData) error
 	GetCommentsByNewsID(newsObjectID primitive.ObjectID) (*models.Comments, error)
-	UpdateCommentsByNewsID(newsObjectID primitive.ObjectID, tagName string, updatedTagItem *models.TagData) error
+	UpdateCommentsByNewsID(newsObjectID primitive.ObjectID, commentAuthor string, updatedTagItem *models.CommentData) error
+	DeleteCommentByNewsID(newsObjectID primitive.ObjectID, deleteCommentData *models.CommentData) error
 }
 
 type CommentRepository struct {
