@@ -13,9 +13,10 @@ import (
 type CommentRepo interface {
 	CreateDocumentByNewsID(newsObjectID primitive.ObjectID) error
 	AddCommentToNews(newsObjectID primitive.ObjectID, commentItem *models.CommentData) error
-	GetCommentsByNewsID(newsObjectID primitive.ObjectID) (*models.Comments, error)
-	UpdateCommentsByNewsID(newsObjectID primitive.ObjectID, commentAuthor string, updatedTagItem *models.CommentData) error
-	DeleteCommentByNewsID(newsObjectID primitive.ObjectID, deleteCommentData *models.CommentData) error
+	GetAllCommentsByNewsID(newsObjectID primitive.ObjectID) (*models.Comments, error)
+	GetCommentByCommentID(newsObjectID primitive.ObjectID, commentObjectID primitive.ObjectID) (*models.Comments, error)
+	UpdateCommentsByNewsID(newsObjectID primitive.ObjectID, commentObjectID primitive.ObjectID, updatedCommentItem *models.CommentData) error
+	DeleteCommentByNewsIDAndCommentID(newsObjectID primitive.ObjectID, commentObjectID primitive.ObjectID) error
 }
 
 type CommentRepository struct {
@@ -62,7 +63,23 @@ func (cr *CommentRepository) AddCommentToNews(newsObjectID primitive.ObjectID, c
 	return nil
 }
 
-func (cr *CommentRepository) GetCommentsByNewsID(newsObjectID primitive.ObjectID) (*models.Comments, error) {
+func (cr *CommentRepository) GetCommentByCommentID(newsObjectID primitive.ObjectID, commentObjectID primitive.ObjectID) (*models.Comments, error) {
+	filter := bson.D{
+		{"news_id", newsObjectID},
+		{"comments", bson.M{"$elemMatch": bson.M{"_id": commentObjectID}}},
+	}
+
+	var result models.Comments
+	err := cr.coll.FindOne(context.TODO(), filter).Decode(&result)
+	if err != nil {
+		logger.GetLogger().Fatal("Unable to find the mongoDB request! Error: ", err.Error())
+		return nil, err
+	}
+
+	return &result, nil
+}
+
+func (cr *CommentRepository) GetAllCommentsByNewsID(newsObjectID primitive.ObjectID) (*models.Comments, error) {
 	filter := bson.D{{"news_id", newsObjectID}}
 
 	var result models.Comments
@@ -75,10 +92,10 @@ func (cr *CommentRepository) GetCommentsByNewsID(newsObjectID primitive.ObjectID
 	return &result, nil
 }
 
-func (cr *CommentRepository) UpdateCommentsByNewsID(newsObjectID primitive.ObjectID, commentAuthor string, updatedCommentItem *models.CommentData) error {
+func (cr *CommentRepository) UpdateCommentsByNewsID(newsObjectID primitive.ObjectID, commentObjectID primitive.ObjectID, updatedCommentItem *models.CommentData) error {
 	filter := bson.D{
 		{"news_id", newsObjectID},
-		{"comments", bson.M{"$elemMatch": bson.M{"user": commentAuthor}}},
+		{"comments", bson.M{"$elemMatch": bson.M{"_id": commentObjectID}}},
 	}
 
 	update := bson.D{
@@ -96,14 +113,14 @@ func (cr *CommentRepository) UpdateCommentsByNewsID(newsObjectID primitive.Objec
 	return nil
 }
 
-func (cr *CommentRepository) DeleteCommentByNewsID(newsObjectID primitive.ObjectID, deleteCommentData *models.CommentData) error {
+func (cr *CommentRepository) DeleteCommentByNewsIDAndCommentID(newsObjectID primitive.ObjectID, commentObjectID primitive.ObjectID) error {
 	filter := bson.D{
 		{"news_id", newsObjectID},
 	}
 
 	update := bson.D{
 		{"$pull", bson.D{
-			{"comments", bson.M{"content": deleteCommentData.Content}},
+			{"comments", bson.M{"_id": commentObjectID}},
 		}},
 	}
 
